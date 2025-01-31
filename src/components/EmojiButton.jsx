@@ -6,10 +6,13 @@ export default function EmojiButton({
   selectedCardEntry,
   matchedCardEntry,
   index,
+  showNumber,
 }) {
   const btnContent =
     selectedCardEntry || matchedCardEntry
       ? decodeEntity(emoji.htmlCode[0])
+      : showNumber
+      ? index + 1
       : '?';
   const btnAria = matchedCardEntry
     ? `${emoji.name} "Matched."`
@@ -25,11 +28,11 @@ export default function EmojiButton({
 
   return (
     <button
-      aria-label={`Position ${index+1}:  ${btnAria}`}
+      aria-label={`Position ${index + 1}:  ${btnAria}`}
       className={`btn btn--emoji ${btnStyle}`}
       onClick={selectedCardEntry ? null : handleClick}
       disabled={matchedCardEntry}
-      aria-live='polite'
+      aria-live="polite"
     >
       {btnContent}
     </button>

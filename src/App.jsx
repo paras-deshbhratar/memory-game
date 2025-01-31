@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Form from './components/Form';
 import MemoryCard from './components/MemoryCard';
 import Header from './components/Header';
@@ -7,29 +7,41 @@ import AssistiveTechInfo from './components/AssistiveTechInfo';
 import GameOver from './components/GameOver';
 import ErrorCard from './components/ErrorCard';
 import Confetti from 'react-confetti';
+import flip from './assets/flip.mp3';
+import correct from './assets/correct.mp3';
+import cheer from './assets/cheer.mp3';
 
 export default function App() {
-  const initialFormData = { category: 'animals-and-nature', number: 4 };
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState(() => ({
+    category: 'animals-and-nature',
+    number: 10,
+  }));
   const [isGameOn, setIsGameOn] = useState(false);
   const [emojiData, setEmojiData] = useState([]);
   const [selectedCards, setSelectedCards] = useState([]);
   const [matchedCards, setMatchedCards] = useState([]);
   const [areAllCardsMatched, setAreAllCardsMatched] = useState(false);
   const [isError, setIsError] = useState(false);
-  console.log(formData);
+  const [showNumber, setShowNumber] = useState(false);
+  const soundRefs = useRef({
+    flip: new Audio(flip),
+    correct: new Audio(correct),
+    cheer: new Audio(cheer),
+  });
 
   useEffect(() => {
     if (emojiData.length > 0 && matchedCards.length === emojiData.length) {
       setAreAllCardsMatched(true);
+      playSound('cheer');
     }
-  }, [matchedCards]);
+  }, [matchedCards, emojiData]);
 
   useEffect(() => {
     if (
       selectedCards.length === 2 &&
       selectedCards[0].name === selectedCards[1].name
     ) {
+      playSound('correct');
       setMatchedCards((prevMatchedCards) => [
         ...prevMatchedCards,
         ...selectedCards,
@@ -39,7 +51,6 @@ export default function App() {
 
   function handleFormChange(e) {
     const { name, value } = e.currentTarget;
-    console.log(name, value)
     setFormData((prevFormData) => ({ ...prevFormData, [name]: value }));
   }
 
@@ -49,13 +60,10 @@ export default function App() {
       const response = await fetch(
         `https://emojihub.yurace.pro/api/all/category/${formData.category}`
       );
-      if (!response.ok) {
-        throw new Error('Could not fetch data from API');
-      }
+      if (!response.ok) throw new Error('Could not fetch data from API');
       const data = await response.json();
-      const dataSlice = getDataSlice(data, formData.number / 2);
-      const emojjiArray = getEmojisArray(dataSlice);
-      setEmojiData(emojjiArray);
+      const slicedData = getDataSlice(data, formData.number / 2);
+      setEmojiData(getEmojisArray(slicedData));
       setIsGameOn(true);
     } catch (err) {
       console.error(err);
@@ -63,45 +71,34 @@ export default function App() {
     }
   }
 
-  function getRandomIndices(data, numOfIndices) {
-    const randomIndicies = [];
-    for (let i = 0; i < numOfIndices; i++) {
-      const randomNum = Math.floor(Math.random() * data.length);
-      if (!randomIndicies.includes(randomNum)) {
-        randomIndicies.push(randomNum);
-      } else {
-        i--;
-      }
-    }
-    return randomIndicies;
+  function getDataSlice(data, number) {
+    const indices = getRandomIndices(data, number);
+    return indices.map((i) => data[i]);
   }
 
-  function getDataSlice(data, number) {
-    const randomIndices = getRandomIndices(data, number);
-    return randomIndices.map((index) => data[index]);
+  function getRandomIndices(data, numOfIndices) {
+    const indices = new Set();
+    while (indices.size < numOfIndices) {
+      indices.add(Math.floor(Math.random() * data.length));
+    }
+    return [...indices];
   }
 
   function getEmojisArray(data) {
-    const pairedEmojisArray = [...data, ...data];
+    const pairedEmojis = [...data, ...data];
     // Fisher Yates Algorithm to shuffle the array
-    for (let i = pairedEmojisArray.length - 1; i > 0; i--) {
+    for (let i = pairedEmojis.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      const temp = pairedEmojisArray[i];
-      pairedEmojisArray[i] = pairedEmojisArray[j];
-      pairedEmojisArray[j] = temp;
+      [pairedEmojis[i], pairedEmojis[j]] = [pairedEmojis[j], pairedEmojis[i]];
     }
-    return pairedEmojisArray;
+    return pairedEmojis;
   }
 
   function turnCard(name, index) {
-    if (selectedCards.length < 2) {
-      setSelectedCards((prevSelectedCards) => [
-        ...prevSelectedCards,
-        { name, index },
-      ]);
-    } else if (selectedCards.length === 2) {
-      setSelectedCards([{ name, index }]);
-    }
+    playSound('flip');
+    setSelectedCards((prev) =>
+      prev.length < 2 ? [...prev, { name, index }] : [{ name, index }]
+    );
   }
 
   function resetGame() {
@@ -115,6 +112,18 @@ export default function App() {
   function resetError() {
     setIsError(false);
   }
+
+  function handleOnChangeShowNumber() {
+    setShowNumber(!showNumber);
+  }
+
+  const playSound = (soundName) => {
+    const sound = soundRefs.current[soundName];
+    if (sound) {
+      sound.currentTime = 0; // Reset the sound to the beginning
+      sound.play();
+    }
+  };
 
   return (
     <>
@@ -133,12 +142,29 @@ export default function App() {
         {areAllCardsMatched && <GameOver handleClick={resetGame} />}
 
         {isGameOn && (
-          <MemoryCard
-            handleClick={turnCard}
-            data={emojiData}
-            selectedCards={selectedCards}
-            matchedCards={matchedCards}
-          />
+          <>
+            {!areAllCardsMatched && (
+              <form className="wrapper showNumber">
+                <input
+                  type="checkbox"
+                  id="showNumber"
+                  name="showNumber"
+                  value="showNumber"
+                  checked={showNumber}
+                  onChange={handleOnChangeShowNumber}
+                />
+                <label htmlFor="showNumber">Show number</label>
+              </form>
+            )}
+
+            <MemoryCard
+              handleClick={turnCard}
+              data={emojiData}
+              selectedCards={selectedCards}
+              matchedCards={matchedCards}
+              showNumber={showNumber}
+            />
+          </>
         )}
         {isError && <ErrorCard handleClick={resetError} />}
       </main>

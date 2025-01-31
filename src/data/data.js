@@ -23,9 +23,6 @@ const data = {
     ],
     number: [
         {
-            value: "4"
-        },
-        {
             value: "10"
         },
         {

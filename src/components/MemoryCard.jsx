@@ -5,6 +5,7 @@ export default function MemoryCard({
   data,
   selectedCards,
   matchedCards,
+  showNumber
 }) {
   const emojiArray = [...data];
   const cardEl = emojiArray.map((emoji, index) => {
@@ -26,6 +27,7 @@ export default function MemoryCard({
           handleClick={() => handleClick(emoji.name, index)}
           emoji={emoji}
           index={index}
+          showNumber={showNumber}
         ></EmojiButton>
       </li>
     );
